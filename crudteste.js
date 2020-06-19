@@ -28,11 +28,11 @@ var config = {
 ////Conexões
 // Criar conexão ao banco mysql
 var connectionmysql = mysql.createConnection({
-	host: 'cocil.com.br',
-	port: 3306,
-	user: 'newcocil_cat',
-	password: 'pepf[2{$8!9u',
-	database: 'newcocil_cat_teste',
+	host: '',
+	port: 1,
+	user: '',
+	password: '',
+	database: '',
 	multipleStatements: true,
 });
 
