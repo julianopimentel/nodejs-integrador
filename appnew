@@ -1,0 +1,157 @@
+var Connection = require('tedious').Connection;
+var Request = require('tedious').Request;
+var TYPES = require('tedious').TYPES;
+var async = require('async');
+const mysql = require('mysql');
+const moment = require('moment');
+const { Console } = require('console');
+var Promise = require('promise');
+var arraydados  = [];
+var codigos  = [];
+var arrayprice  = [];
+var arraypricepromo = [];
+var arrayesgotado  = [];
+
+// Create connection to database
+var config = {
+	server: '',
+	authentication: {
+		type: 'default',
+		options: {
+			userName: '', // update me
+			password: '' // update me
+		}
+	},
+	options: {
+		database: '',
+		encrypt: false,
+		minVersion: 'TLSv1'
+	}
+}
+
+////Conexões
+// Criar conexão ao banco mysql
+var connectionmysql = mysql.createConnection({
+	host: '',
+	port: 3306,
+	user: '',
+	password: '',
+	database: '',
+	multipleStatements: true,
+});
+
+var connection = new Connection(config);
+
+function Start(callback) {
+    //console.clear();
+	console.log('Starting...');
+	callback(null);
+}
+
+///leitura no banco da SEAL
+function ReadFull(callback) {
+	console.log('Reading rows from the Table in database ESL...');
+	// Read all rows from table
+	request = new Request(
+		//'select top 3 * from VIEW_PRODUTO',
+		"select * from VIEW_PRODUTO where COD = '69133' OR COD = '79082' OR COD = '79239'",
+		function (err, rowCount, rows) {
+			if (err) {
+				callback(err);
+			} else {
+				console.log(rowCount + ' row(s) returned');
+				callback(null);
+			}
+		});
+	// Print the rows read
+	var result = "";
+	request.on('row', function (columns) {
+		Codigo = columns[0].value;
+		Preco = columns[1].value + "." + columns[2].value;
+		Promo = columns[3].value + "." + columns[4].value;
+		Datainic = columns[5].value;
+		Datafim = columns[6].value;
+		Tipo = columns[7].value;
+		Descricao = columns[8].value;
+		Data_esl = columns[9].value;
+		
+		arraydados.push({
+			preconormal : Preco, 
+			precopromo : Promo, 
+			datapromo_inicio : Datainic, 
+			datapromo_fim : Datafim, 
+			tipo : Tipo, 
+			data_esl : Data_esl,
+			sku : Codigo
+		})	
+		result = "";
+	});
+	// Execute SQL statement
+	connection.execSql(request);
+}
+
+//insert dos dados da SEAL para o MYSQL no site
+function UpdateFull(callback) {
+	// update array all rows from table
+	console.log(arraydados);
+	//let sql = "UPDATE nasa_wc_product_meta_lookup SET ? where ?";
+	let sql = "UPDATE nasa_wc_product_meta_lookup SET preconormal= ?, precopromo = ?, dtpromo_inicio= ?, dtpromo_fim = ?, tipo = ?, data_esl = ? where SKU= ?";
+
+	values = arraydados;
+	//console.log(values.values());
+	//var values = arraydados.values();
+	//console.log(eArr.next().value);
+
+	Object.keys(arraydados).forEach(function(key) {
+		var row = arraydados[key];
+		preconormal  = row.preconormal, 
+		precopromo  = row.precopromo, 
+		datapromo_inicio  = row.datapromo_inicio, 
+		datapromo_fim  = row.datapromo_fim, 
+		Tipo  = row.tipo, 
+		Data_esl  = row.data_esl,
+		Sku  = row.sku
+	
+		//adicionar os dados coletados para o objeto preco
+		values = [
+			Preconormal  = row.preconormal, 
+			Precopromo  = row.precopromo, 
+			Datapromo_inicio  = row.datapromo_inicio, 
+			Datapromo_fim  = row.datapromo_fim, 
+			Tipo  = row.tipo, 
+			Data_esl  = row.data_esl,
+			Sku  = row.sku];
+		var a = [Preconormal, Precopromo, Datapromo_inicio, Datapromo_fim, Tipo, Data_esl, Sku];
+
+	console.log(a);
+	console.log(arraydados.join());
+	sql = mysql.format(sql, values);
+	connectionmysql.query(sql, values, function (error, results, fields) {
+		if (error) throw error;
+		console.log('changed ' + results.changedRows + ' rows');
+	});
+
+});
+}
+function Complete(err) {
+	if (err) {
+		//callback(err);
+	} else {
+		console.log("Done!");
+		process.exit();
+	}
+}
+// Attempt to connect and execute queries if connection goes through
+connection.on('connect', function (err) {
+	if (err) {
+		console.log(err);
+	} else {
+		console.log('Connected');
+		// Execute all functions in the array serially
+		async.waterfall([
+			Start,
+			ReadFull,
+			UpdateFull
+		], Complete)
+	}
+});
